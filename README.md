@@ -102,6 +102,32 @@ Buradaki "önerilen adet" tamamen bilgi amaçlıdır, senin girdiğin
 **Hiçbir emir otomatik gönderilmez** — gördüğün fiyat/stop/hedef seviyelerini
 kendi uygulamandan manuel giriyorsun.
 
+## Haber tabanlı sinyal (deneysel, yeni)
+
+Bot artık iki tür "AL sinyali" üretir:
+
+- **AL sinyali (teknik)** — `WATCHLIST`'teki 40 hisse için, EMA/RSI hesabına
+  dayanır. Daha güvenilir, kural tabanlı.
+- **AL sinyali (haber bazlı, DENEYSEL)** — `NEWS_COMPANIES`'teki (aynı 40
+  şirket, istersen genişletebilirsin) hisseler için, son 2 gündeki haber
+  başlıklarında "olumlu" görünen kelimeler (rekor, kâr artışı, anlaşma
+  imzaladı, temettü vb.) geçiyorsa üretilir. **Bu gerçek bir yapay zeka
+  duygu analizi değildir** — sadece kelime eşleştirmesi yapıyor, ironiyi
+  veya "artmadı" gibi olumsuzlamayı anlamayabilir. Bir "bu habere bak"
+  işareti olarak düşün, teknik sinyal kadar güvenilir sayma — mesajda
+  hangi başlık(lar)ın tetiklediğini görürsün, kararı verirken o başlığı
+  kendin okuyup değerlendirmen önemli.
+
+Kapatmak istersen `config.py` içinde `USE_NEWS_SIGNAL = False` yap.
+
+Kaynak, ücretsiz olan Google News RSS — resmi KAP (Kamuyu Aydınlatma
+Platformu) API'si bireysel kullanıcıya kapalı (kurumsal/ücretli abonelik
+gerektiriyor), bu yüzden onu kullanamadık. Google News'in de bir sınırı
+var: haberler bazen birkaç saat/gün gecikmeli görünebilir, anlık değildir.
+
+Daha fazla şirket eklemek istersen `config.py > NEWS_COMPANIES` içine
+aynı formatta (`"TICKER.IS": "Şirket Adı"`) ekleyebilirsin.
+
 ## Ayarlar (`config.py`)
 
 - `WATCHLIST`: takip edilecek hisseler (yfinance formatı, `.IS` eki ile).

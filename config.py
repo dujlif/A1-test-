@@ -6,10 +6,16 @@ import os
 
 # --- Takip Listesi ---
 # yfinance formatinda BIST ticker'lari (.IS eki ile). Istedigin kadar
-# hisse ekleyip cikarabilirsin.
+# hisse ekleyip cikarabilirsin. BIST30/50 agirlikli, likit ~40 hisse.
 WATCHLIST = [
-    "THYAO.IS", "GARAN.IS", "ASELS.IS", "KCHOL.IS",
-    "EREGL.IS", "SASA.IS", "BIMAS.IS", "TUPRS.IS",
+    "THYAO.IS", "GARAN.IS", "AKBNK.IS", "ISCTR.IS", "YKBNK.IS",
+    "HALKB.IS", "VAKBN.IS", "ASELS.IS", "KCHOL.IS", "SAHOL.IS",
+    "EREGL.IS", "KRDMD.IS", "SASA.IS", "PETKM.IS", "TUPRS.IS",
+    "BIMAS.IS", "MGROS.IS", "ULKER.IS", "CCOLA.IS", "AEFES.IS",
+    "TCELL.IS", "TTKOM.IS", "PGSUS.IS", "FROTO.IS", "TOASO.IS",
+    "ARCLK.IS", "VESTL.IS", "SISE.IS", "KOZAL.IS", "KOZAA.IS",
+    "ENKAI.IS", "TAVHL.IS", "DOHOL.IS", "EKGYO.IS", "GUBRF.IS",
+    "ALARK.IS", "TKFEN.IS", "BRSAN.IS", "ASTOR.IS", "OYAKC.IS",
 ]
 
 # --- Veri Araliklari ---
@@ -48,3 +54,58 @@ RUN_ONCE = os.environ.get("RUN_ONCE", "true").lower() != "false"
 LOOP_SLEEP_SECONDS = 300     # sadece RUN_ONCE=false oldugunda kullanilir
 SIGNAL_LOG_FILE = "signals_log.csv"
 STATE_FILE = "state.json"
+
+# Piyasa kapaliyken de test icin zorla calistirmak istersen (GitHub Actions
+# "Run workflow" ekranindaki force_run kutusundan otomatik ayarlanir).
+FORCE_RUN = os.environ.get("FORCE_RUN", "false").lower() == "true"
+
+# --- Haber Tabanli Sinyal (deneysel) ---
+# ONEMLI: Bu GERCEK bir yapay zeka/NLP duygu analizi DEGILDIR. Sadece
+# haber basliginda belirlenen kelimelerin gecip gecmedigine bakar. Yanlis
+# pozitif verebilir - "bu haberi oku" seviyesinde bir isaret olarak gor,
+# kesin hukum olarak degil. Kapatmak icin False yap.
+USE_NEWS_SIGNAL = True
+NEWS_LOOKBACK_WINDOW = "when:2d"   # Google News RSS zaman filtresi
+
+NEWS_POSITIVE_KEYWORDS = [
+    "rekor", "kar artisi", "kâr artışı", "yukseldi", "yükseldi",
+    "anlasma imzaladi", "anlaşma imzaladı", "sozlesme imzaladi",
+    "sözleşme imzaladı", "ihale kazandi", "ihale kazandı",
+    "yeni yatirim", "yeni yatırım", "temettu", "temettü",
+    "buyume", "büyüme", "ihracat rekoru", "hedef fiyat yukseltildi",
+    "hedef fiyat yükseltildi", "tavan yapti", "tavan yaptı",
+    "prim yapti", "prim yaptı",
+]
+NEWS_NEGATIVE_KEYWORDS = [
+    "zarar", "dava acildi", "dava açıldı", "sorusturma", "soruşturma",
+    "dustu", "düştü", "kriz", "iflas", "ceza kesildi", "taban yapti",
+    "taban yaptı", "iptal edildi", "uretim durdu", "üretim durdu",
+    "greve gitti", "temerrut", "temerrüt",
+]
+
+# Haber taramasi WATCHLIST'ten BAGIMSIZ ve daha genis calisir - buradaki
+# her sirket icin haber taranir, WATCHLIST'te olmasa bile pozitif haber
+# cikarsa sinyal uretilir. Kendi eklemek istedigin sirket varsa ayni
+# formatta ekleyebilirsin: "TICKER.IS": "Google'da aratilacak sirket adi"
+NEWS_COMPANIES = {
+    "THYAO.IS": "Türk Hava Yolları", "GARAN.IS": "Garanti BBVA",
+    "AKBNK.IS": "Akbank", "ISCTR.IS": "İş Bankası",
+    "YKBNK.IS": "Yapı Kredi", "HALKB.IS": "Halkbank",
+    "VAKBN.IS": "VakıfBank", "ASELS.IS": "Aselsan",
+    "KCHOL.IS": "Koç Holding", "SAHOL.IS": "Sabancı Holding",
+    "EREGL.IS": "Erdemir", "KRDMD.IS": "Kardemir",
+    "SASA.IS": "Sasa Polyester", "PETKM.IS": "Petkim",
+    "TUPRS.IS": "Tüpraş", "BIMAS.IS": "BİM",
+    "MGROS.IS": "Migros", "ULKER.IS": "Ülker",
+    "CCOLA.IS": "Coca-Cola İçecek", "AEFES.IS": "Anadolu Efes",
+    "TCELL.IS": "Turkcell", "TTKOM.IS": "Türk Telekom",
+    "PGSUS.IS": "Pegasus", "FROTO.IS": "Ford Otosan",
+    "TOASO.IS": "Tofaş", "ARCLK.IS": "Arçelik",
+    "VESTL.IS": "Vestel", "SISE.IS": "Şişecam",
+    "KOZAL.IS": "Koza Altın", "KOZAA.IS": "Koza Madencilik",
+    "ENKAI.IS": "Enka İnşaat", "TAVHL.IS": "TAV Havalimanları",
+    "DOHOL.IS": "Doğan Holding", "EKGYO.IS": "Emlak Konut",
+    "GUBRF.IS": "Gübre Fabrikaları", "ALARK.IS": "Alarko Holding",
+    "TKFEN.IS": "Tekfen Holding", "BRSAN.IS": "Borusan Mannesmann",
+    "ASTOR.IS": "Astor Enerji", "OYAKC.IS": "Oyak Çimento",
+}
