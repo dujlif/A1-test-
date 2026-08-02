@@ -2,14 +2,11 @@ name: BIST Sinyal Botu
 
 on:
   schedule:
-    # BIST islem saatleri (10:00-18:00 Turkiye saati = 07:00-15:00 UTC,
-    # Turkiye yaz saati uygulamadigi icin sabit). Her saat basi 5. dakikada
-    # calisir, Pazartesi-Cuma.
-    - cron: "5 7-15 * * 1-5"
-  workflow_dispatch: {}   # GitHub mobil uygulamasindan/elle de tetiklenebilir
+    - cron: 5 7-15 * * 1-5
+  workflow_dispatch:
 
 permissions:
-  contents: write   # state.json / signals_log.csv commit'lemek icin
+  contents: write
 
 jobs:
   sinyal-kontrolu:
@@ -21,7 +18,7 @@ jobs:
       - name: Python kur
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: 3.11
 
       - name: Bagimliliklari kur
         run: pip install -r requirements.txt
