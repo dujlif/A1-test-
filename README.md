@@ -1,172 +1,126 @@
 # BIST Sinyal Botu
 
-## Neden forex botundan farklı çalışıyor?
+## Bu bot ne yapar, ne yapmaz
 
-Forex botunda MetaTrader 5 hem veriyi çekiyor hem de emri otomatik gönderiyordu.
-BIST tarafında bu mümkün değil, çünkü:
+- **Ne yapar:** Kural tabanlı bir sinyal sistemi. Teknik analiz + (deneysel)
+  haber taraması + (deneysel) analist/banka önerisi taraması birleştirip
+  "AL sinyali" üretir. Her işlemde bilgi amaçlı stop/hedef ve önerilen
+  pay adedi hesaplar.
+- **Ne yapmaz:** Kâr garanti ETMEZ, otomatik emir GÖNDERMEZ. Sinyal
+  üretir, işlemi sen kendi aracı kurumunun uygulamasından manuel yaparsın.
 
-- **MetaTrader 5, Türkiye'de doğrudan BIST hisse senedi alım-satımını
-  desteklemiyor** (sadece VİOP — vadeli işlemler — bazı kurumlarda MT5
-  üzerinden yapılabiliyor, o da ayrı bir ürün).
-- **Algolab** (Deniz Yatırım'ın ücretsiz BIST algoritmik işlem API'si,
-  bu alanda bilinen tek ciddi seçenekti) **31.12.2025 itibarıyla kapandı.**
-  Şu an bireysel yatırımcının ücretsiz/uygun fiyatlı kullanabileceği bir
-  BIST otomatik emir API'si yok.
+## Neden otomatik emir göndermiyor?
 
-Bu yüzden bot **otomatik emir göndermez, sinyal üretir.** Aynı trend+momentum
-mantığıyla BIST hisselerini izler, bir fırsat gördüğünde seni bilgilendirir;
-işlemi sen kendi aracı kurumunun uygulamasından (Midas, İş Yatırım, Gedik,
-N Kolay, hangisini kullanıyorsan) manuel olarak yaparsın. Bunun avantajı:
-minimum tutar sınırı da ortadan kalkıyor — bir payın fiyatı kadar bütçeyle
-başlayabilirsin.
+- **MetaTrader 5, Türkiye'de BIST hisse senedi alım-satımını desteklemiyor**
+  (sadece VİOP — vadeli işlemler — bazı kurumlarda destekleniyor, o ayrı
+  bir ürün).
+- **Algolab** (Deniz Yatırım'ın ücretsiz BIST algoritmik işlem API'si)
+  **31.12.2025 itibarıyla kapandı.** Şu an bireysel yatırımcının
+  ücretsiz/uygun fiyatlı kullanabileceği bir BIST otomatik emir API'si yok.
 
-## Strateji mantığı
+Bunun avantajı: minimum tutar sınırı da yok — bir payın fiyatı kadar
+bütçeyle başlayabilirsin.
+
+## Üç sinyal tipi
+
+| Tip | Kapsam | Kaynak | Güvenilirlik |
+|---|---|---|---|
+| **AL sinyali (teknik)** | `WATCHLIST` (40 hisse) | EMA20/50 trend + EMA9/21 kesişim + RSI | En güvenilir, kural tabanlı |
+| **AL sinyali (haber bazlı)** | `NEWS_COMPANIES` (40 şirket, genişletilebilir) | Google News RSS + anahtar kelime | Deneysel |
+| **AL sinyali (analist/banka önerisi)** | `NEWS_COMPANIES` | Google News RSS + banka adı + tavsiye kelimesi | Deneysel |
+
+### Teknik sinyal nasıl çalışıyor
 
 | Katman | Zaman dilimi | Ne yapar |
 |---|---|---|
-| Trend filtresi | Günlük | EMA50 vs EMA200 → sadece YÜKSELEN trend aranır |
-| Giriş sinyali | Saatlik | EMA9/EMA21 yukarı kesişimi + RSI(14) filtresi |
+| Trend filtresi | Günlük | EMA20 vs EMA50 → sadece YÜKSELEN trend aranır |
+| Giriş sinyali | Saatlik | EMA9/EMA21'in son 3 mum içinde yukarı kesişimi + RSI(35-75) |
 | Bilgi amaçlı seviyeler | Saatlik | ATR(14) tabanlı stop (1.5x) ve hedef (2.75x) |
 
-**Sadece AL sinyali üretir, satış/açığa satış sinyali vermez** — çünkü BIST'te
-açığa satış küçük bütçeli bireysel yatırımcılar için genelde erişilebilir
-değil (ek sözleşme, ek teminat gerektiriyor). Günlük trend düşüşteyse bot
-o hisse için sessiz kalır, "bu hissede şu an fırsat yok" demiş olur.
+Daha SIK sinyal üretmesi için trend filtresi hızlandırıldı (EMA50/200 yerine
+EMA20/50), RSI bandı genişletildi, kesişim son mum yerine son 3 mumda
+aranıyor. **Bunun bedeli:** daha fazla sinyal, ama muhtemelen biraz daha
+fazla yanlış sinyal de demek. Çok sık geliyorsa `config.py`'de
+`RSI_LONG_MIN/MAX` daraltıp `TREND_EMA_SLOW`'u büyüterek sıkılaştırabilirsin;
+çok az geliyorsa tam tersini yapabilirsin.
+
+Sadece AL sinyali üretir, satış/açığa satış sinyali vermez — BIST'te açığa
+satış küçük bütçeli bireysel yatırımcılar için genelde erişilebilir değil.
+
+### Haber ve analist sinyalleri hakkında önemli not
+
+**Bunlar gerçek bir yapay zeka duygu analizi ya da resmi analist konsensüsü
+DEĞİL.** KAP'ın (Kamuyu Aydınlatma Platformu) kendi API'si kurumsal/ücretli
+abonelik gerektiriyor, bireysel kullanıcıya kapalı — bu yüzden onu
+kullanamadık. Bunun yerine ücretsiz Google News RSS üzerinden başlıkları
+tarayıp:
+- **Haber sinyali:** başlıkta olumlu görünen kelimeler (rekor, kâr artışı,
+  temettü, anlaşma imzaladı vb.) var mı diye basit kelime eşleştirmesi yapar.
+- **Analist sinyali:** başlıkta bir banka/aracı kurum adı (İş Yatırım, Ak
+  Yatırım vb.) VE bir tavsiye ifadesi (AL tavsiyesi, hedef fiyat yükseltildi
+  vb.) birlikte geçiyor mu diye bakar.
+
+İkisi de ironiyi, olumsuzlamayı anlamaz, yanlış pozitif verebilir, kaçırdığı
+gerçek haberler/tavsiyeler olabilir. Mesajda hangi başlık(lar) tetiklediğini
+görürsün — kararı vermeden önce o başlığı kendin okuman önemli. Ayrı ayrı
+etiketlenmelerinin sebebi bu: teknik sinyalle aynı güven seviyesinde değiller.
+
+Kapatmak istersen `config.py` içinde `USE_NEWS_SIGNAL = False` veya
+`USE_ANALYST_SIGNAL = False` yap.
 
 ## Kurulum — Android (önerilen yöntem: GitHub Actions + Telegram)
 
 Telefon Python çalıştıramadığı için bot **bulutta, ücretsiz** çalışır;
-telefonun tek işi Telegram bildirimini almak. Kurulum tek seferlik:
+telefonun tek işi Telegram bildirimini almak.
 
-1. **GitHub hesabı aç** (yoksa) — telefon tarayıcısından veya GitHub'ın
-   Android uygulamasından yapılabilir.
-2. **Yeni bir private repo oluştur** (örn. `bist-sinyal-botu`) ve bu
-   klasördeki tüm dosyaları oraya yükle. (Bilgisayarın yoksa: GitHub'ın
-   web arayüzünde "Add file → Upload files" ile telefondan bile dosyaları
-   tek tek sürükleyip yükleyebilirsin.)
+1. **GitHub hesabı aç** (yoksa).
+2. **Yeni bir private repo oluştur** ve bu klasördeki tüm dosyaları oraya
+   yükle. `.github/workflows/sinyal.yml` dosyasının GERÇEKTEN
+   `.github/workflows/` klasörünün İÇİNDE olduğundan emin ol (mobilde
+   yüklerken en sık hata bu).
 3. **Telegram botu oluştur:**
-   - Telegram'da **@BotFather**'a yaz, `/newbot` komutuyla bot oluştur,
-     sana bir **token** verecek.
-   - Botunla bir kere mesajlaş (herhangi bir şey yaz).
-   - **@userinfobot**'a yazıp kendi **chat_id**'ni öğren.
-4. Repo'da **Settings → Secrets and variables → Actions → New repository
-   secret** ile iki secret ekle:
-   - `TELEGRAM_BOT_TOKEN` → BotFather'ın verdiği token
-   - `TELEGRAM_CHAT_ID` → kendi chat_id'n
-5. Repo'da **Actions** sekmesine gir, workflow'u onayla/etkinleştir.
-   Artık BIST işlem saatlerinde (10:00-18:00, hafta içi) her saat başı
-   otomatik çalışıp sinyal varsa Telegram'a bildirim atacak — telefon
-   kapalı bile olsa çalışır, açtığında bildirimi görürsün.
-6. Elle test etmek istersen: **Actions → BIST Sinyal Botu → Run workflow**
-   butonuna basman yeterli (bunu GitHub'ın Android uygulamasından da
-   yapabilirsin).
+   - **@BotFather**'a yaz, `/newbot` ile bot oluştur, token al.
+   - Botunla bir kere mesajlaş.
+   - **@userinfobot**'a yazıp kendi chat_id'ni öğren.
+4. Repo → **Settings → Secrets and variables → Actions** → iki secret ekle:
+   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+5. **Actions** sekmesinden workflow'u etkinleştir. Artık BIST işlem
+   saatlerinde (10:00-18:00, hafta içi) her saat başı otomatik çalışır.
+6. Test için: **Actions → BIST Sinyal Botu → Run workflow** — açılan
+   kutuda **force_run**'ı işaretlersen piyasa kapalı olsa bile çalışır.
 
-Bu yöntemde broker hesabı/API anahtarı gerekmez, tamamen ücretsiz veri
-kullanılır (yfinance/Yahoo Finance) — **0 TL** ile başlayabilirsin.
-
-## Alternatif: Termux ile telefonun üzerinde çalıştırmak
-
-GitHub'a hiç bulaşmadan doğrudan telefonda çalıştırmak istersen:
-
-1. **Termux**'u Play Store'dan değil, [F-Droid](https://f-droid.org/) ya da
-   GitHub üzerinden kur (Play Store sürümü güncellenmiyor, sorun çıkarabilir).
-2. Termux'ta:
-   ```
-   pkg update && pkg upgrade
-   pkg install python
-   pip install -r requirements.txt
-   ```
-   (numpy/pandas kurulumu telefonda biraz uzun sürebilir, sabırlı ol.)
-3. Sürekli döngüde çalıştırmak için: `RUN_ONCE=false python watcher.py`
-
-**Dezafyanı bil:** Android, arka planda uzun süre açık kalan uygulamaları
-pil tasarrufu için kapatabilir — Termux'a pil optimizasyonundan muafiyet
-vermen gerekir, yine de %100 garantili değildir. Bu yüzden 7/24 çalışması
-gereken bir şey için GitHub Actions yöntemi daha güvenilir; Termux'u daha
-çok "elimle açıp kontrol edeyim" tarzı kullanım için düşün.
-
-## Sinyal geldiğinde ne olur?
-
-Konsola yazdırır, `signals_log.csv` dosyasına kaydeder, ve (açarsan) Telegram'a
-bildirim gönderir:
+## Alternatif: Termux
 
 ```
-[THYAO.IS] AL sinyali
-Fiyat: 285.40 TL
-Stop: 274.10 TL | Hedef: 316.90 TL
-Onerilen adet (bilgi amacli, 5000 TL butceye gore): 17
+pkg update && pkg upgrade
+pkg install python
+pip install -r requirements.txt
+RUN_ONCE=false python watcher.py
 ```
 
-Buradaki "önerilen adet" tamamen bilgi amaçlıdır, senin girdiğin
-`config.py > BUDGET_TRY` değerine ve %1 risk kuralına göre hesaplanır.
-**Hiçbir emir otomatik gönderilmez** — gördüğün fiyat/stop/hedef seviyelerini
-kendi uygulamandan manuel giriyorsun.
-
-## Haber tabanlı sinyal (deneysel, yeni)
-
-Bot artık iki tür "AL sinyali" üretir:
-
-- **AL sinyali (teknik)** — `WATCHLIST`'teki 40 hisse için, EMA/RSI hesabına
-  dayanır. Daha güvenilir, kural tabanlı.
-- **AL sinyali (haber bazlı, DENEYSEL)** — `NEWS_COMPANIES`'teki (aynı 40
-  şirket, istersen genişletebilirsin) hisseler için, son 2 gündeki haber
-  başlıklarında "olumlu" görünen kelimeler (rekor, kâr artışı, anlaşma
-  imzaladı, temettü vb.) geçiyorsa üretilir. **Bu gerçek bir yapay zeka
-  duygu analizi değildir** — sadece kelime eşleştirmesi yapıyor, ironiyi
-  veya "artmadı" gibi olumsuzlamayı anlamayabilir. Bir "bu habere bak"
-  işareti olarak düşün, teknik sinyal kadar güvenilir sayma — mesajda
-  hangi başlık(lar)ın tetiklediğini görürsün, kararı verirken o başlığı
-  kendin okuyup değerlendirmen önemli.
-
-Kapatmak istersen `config.py` içinde `USE_NEWS_SIGNAL = False` yap.
-
-Kaynak, ücretsiz olan Google News RSS — resmi KAP (Kamuyu Aydınlatma
-Platformu) API'si bireysel kullanıcıya kapalı (kurumsal/ücretli abonelik
-gerektiriyor), bu yüzden onu kullanamadık. Google News'in de bir sınırı
-var: haberler bazen birkaç saat/gün gecikmeli görünebilir, anlık değildir.
-
-Daha fazla şirket eklemek istersen `config.py > NEWS_COMPANIES` içine
-aynı formatta (`"TICKER.IS": "Şirket Adı"`) ekleyebilirsin.
+Android pil optimizasyonu arka planda uzun süre açık kalan işlemleri
+kapatabilir — 7/24 güvenilirlik için GitHub Actions yöntemi daha sağlam.
 
 ## Ayarlar (`config.py`)
 
-- `WATCHLIST`: takip edilecek hisseler (yfinance formatı, `.IS` eki ile).
-- `BUDGET_TRY`: yaklaşık bütçen — kendi durumuna göre güncelle.
-- `RISK_PER_TRADE_PCT`: işlem başına risk edilecek yüzde (varsayılan %1).
-
-## Telegram bildirimi (opsiyonel)
-
-1. Telegram'da **@BotFather** ile konuşup yeni bir bot oluştur, sana bir
-   **token** verecek.
-2. Oluşturduğun botla bir kere mesajlaş, sonra **@userinfobot** ile kendi
-   **chat_id**'ni öğren.
-3. `config.py` içinde `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` doldur,
-   `USE_TELEGRAM = True` yap.
-
-## Varant (warrant) hakkında not
-
-Yahoo Finance / yfinance, BIST'te işlem gören varantların fiyat verisini
-sağlamıyor — bu yüzden bot doğrudan varant fiyatlarını izleyemiyor. Pratik
-çözüm: bot sana bir hissede (örn. THYAO) AL sinyali verdiğinde, o hisseye
-dayalı varantı kendi aracı kurumunun varant ekranından sen seçip
-işlem yapabilirsin. Varantın kendi kaldıracı olduğu için pozisyon
-büyüklüğü/riski hisseden farklı hesaplanır — küçük tutarlarla dikkatli ol.
+- `WATCHLIST`: teknik sinyal için takip edilen 40 hisse.
+- `NEWS_COMPANIES`: haber/analist taraması için şirket adı eşlemesi
+  (aynı formatta `"TICKER.IS": "Şirket Adı"` ekleyebilirsin).
+- `BUDGET_TRY`, `RISK_PER_TRADE_PCT`: pozisyon büyüklüğü önerisi için.
+- `USE_NEWS_SIGNAL`, `USE_ANALYST_SIGNAL`: açma/kapama.
 
 ## Önerilen yol haritası
 
-1. Botu birkaç hafta **sadece izle** (sinyalleri gözlemle, henüz işlem açma).
-2. Sinyallerin mantıklı görünüp görünmediğini kendi bildiğin hisselerle
-   karşılaştır.
+1. Botu birkaç hafta **sadece izle**, henüz işlem açma.
+2. Üç sinyal tipini birbirinden ayırt ederek değerlendir — teknik olana
+   diğerlerinden daha çok güven.
 3. Küçük, kaybetmeyi göze alabileceğin bir tutarla ilk birkaç sinyali
    manuel uygula, sonuçları `signals_log.csv`'den takip et.
-4. İleride bir aracı kurumdan ücretli/kurumsal bir algo-trading API'sine
-   erişimin olursa (ya da VİOP tarafında MT5 destekleyen NCM/NoorCM gibi
-   bir kurumla çalışmak istersen), otomatik emir gönderme kısmını o zaman
-   ekleyebiliriz.
 
 ## Sınırlamalar
 
 - Kâr garantisi yoktur.
-- Yahoo Finance verisi birkaç dakika gecikmeli olabilir, saniyelik
-  scalping için uygun değildir — günlük/saatlik strateji için yeterlidir.
-- BIST işlem saatleri (10:00-18:00 civarı) dışında bot bekleme modunda kalır.
+- Yahoo Finance verisi birkaç dakika gecikmeli olabilir.
+- Google News RSS gerçek zamanlı değildir, saatler/günler gecikmeli
+  haberler de dönebilir.
+- BIST işlem saatleri dışında bot bekleme modunda kalır.

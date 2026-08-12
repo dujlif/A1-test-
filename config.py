@@ -24,13 +24,21 @@ DAILY_INTERVAL = "1d"
 HOURLY_PERIOD = "60d"
 HOURLY_INTERVAL = "60m"
 
-# --- Strateji Parametreleri (forex botuyla ayni mantik) ---
-TREND_EMA_FAST = 50
-TREND_EMA_SLOW = 200
+# --- Strateji Parametreleri ---
+# NOT: Bu degerler daha SIK sinyal uretecek sekilde gevsetildi (asagida
+# EMA50/200 yerine EMA20/50 kullaniliyor, RSI bandi genisletildi, kesisim
+# tespiti son 1 mum yerine son 3 muma bakiyor). Bunun bedeli: daha fazla
+# sinyal ama muhtemelen biraz daha fazla yanlis sinyal de demek - siki bir
+# EMA50/200 filtresi daha az ama istatistiksel olarak daha "temiz" sinyal
+# verirdi. Cok fazla sinyal geliyorsa RSI bandini daraltip/EMA periyotlarini
+# uzatarak geri sikilastirabilirsin.
+TREND_EMA_FAST = 20
+TREND_EMA_SLOW = 50
 ENTRY_EMA_FAST = 9
 ENTRY_EMA_SLOW = 21
 RSI_PERIOD = 14
-RSI_LONG_MIN, RSI_LONG_MAX = 40, 70
+RSI_LONG_MIN, RSI_LONG_MAX = 35, 75
+CROSS_LOOKBACK_CANDLES = 3     # kesisim son kac mum icinde aranacak
 ATR_PERIOD = 14
 ATR_SL_MULT = 1.5
 ATR_TP_MULT = 2.75
@@ -41,8 +49,6 @@ RISK_PER_TRADE_PCT = 1.0
 
 # --- Telegram Bildirimi ---
 # GitHub Actions'ta calistirirken bu ikisi secret'lardan otomatik okunur.
-# Termux'ta yerel test icin istersen elle de yazabilirsin (guvenli degil,
-# sadece kendi telefonunda test ederken).
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 USE_TELEGRAM = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
@@ -83,10 +89,37 @@ NEWS_NEGATIVE_KEYWORDS = [
     "greve gitti", "temerrut", "temerrüt",
 ]
 
-# Haber taramasi WATCHLIST'ten BAGIMSIZ ve daha genis calisir - buradaki
-# her sirket icin haber taranir, WATCHLIST'te olmasa bile pozitif haber
-# cikarsa sinyal uretilir. Kendi eklemek istedigin sirket varsa ayni
-# formatta ekleyebilirsin: "TICKER.IS": "Google'da aratilacak sirket adi"
+# --- Analist / Banka Onerisi Sinyali (deneysel, YENI) ---
+# ONEMLI: BIST icin resmi/ucretsiz bir "analist konsensusu" API'si YOK
+# (KAP'in kendi API'si ücretli/kurumsal aboneliğe kapali). Bu yuzden ayni
+# Google News RSS yontemiyle, banka/araci kurum adi + tavsiye ifadesi
+# birlikte gecen basliklari yakalamaya calisiyoruz. Bu da bir "dikkatini
+# buna cek" isareti - resmi/yapilandirilmis bir konsensus verisi degil,
+# kaçırdığı ya da yanlış yakaladığı haberler olabilir.
+USE_ANALYST_SIGNAL = True
+
+BANK_NAMES = [
+    "İş Yatırım", "Is Yatirim", "Ak Yatırım", "Ak Yatirim",
+    "Garanti BBVA Yatırım", "Garanti Yatirim", "Yapı Kredi Yatırım",
+    "Yapi Kredi Yatirim", "Deniz Yatırım", "Deniz Yatirim",
+    "QNB Finansinvest", "QNB Yatırım", "Tacirler Yatırım",
+    "Tacirler Yatirim", "Ata Yatırım", "Ata Yatirim", "Vakıf Yatırım",
+    "Vakif Yatirim", "Halk Yatırım", "Halk Yatirim", "Şeker Yatırım",
+    "Seker Yatirim", "Gedik Yatırım", "Gedik Yatirim", "Oyak Yatırım",
+    "Oyak Yatirim", "Integral Yatirim", "Ahlatci Yatirim",
+]
+
+ANALYST_RECOMMENDATION_KEYWORDS = [
+    "al tavsiyesi", "hedef fiyat yukseltildi", "hedef fiyat yükseltildi",
+    "hedef fiyatini yukseltti", "hedef fiyatını yükseltti",
+    "endeks uzeri getiri", "endeks üzeri getiri", "topla tavsiyesi",
+    "pozitif gorus", "pozitif görüş", "tavsiyesini yineledi",
+]
+
+# Haber VE analist taramasi WATCHLIST'ten BAGIMSIZ ve daha genis calisir -
+# buradaki her sirket icin taranir, WATCHLIST'te olmasa bile sinyal
+# uretilebilir. Kendi eklemek istedigin sirket varsa ayni formatta
+# ekleyebilirsin: "TICKER.IS": "Google'da aratilacak sirket adi"
 NEWS_COMPANIES = {
     "THYAO.IS": "Türk Hava Yolları", "GARAN.IS": "Garanti BBVA",
     "AKBNK.IS": "Akbank", "ISCTR.IS": "İş Bankası",

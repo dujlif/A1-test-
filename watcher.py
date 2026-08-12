@@ -12,13 +12,18 @@ ONEMLI - forex botundan farki:
   - Bu sayede minimum tutar siniri da yok - bir payin fiyati kadar
     butceyle baslayabilirsin.
 
-IKI FARKLI SINYAL TIPI URETIR:
-  - "AL sinyali"                -> WATCHLIST'teki hisseler icin, EMA/RSI
-    teknik hesabina dayanir (guvenilirligi daha yuksek, kural tabanli).
-  - "AL sinyali (haber bazli)"  -> NEWS_COMPANIES'teki (cok daha genis)
-    hisseler icin, basit anahtar kelime eslestirmesiyle "olumlu gorunen"
-    basliklar bulununca uretilir. Bu DENEYSEL ve GERCEK bir NLP analizi
-    DEGILDIR - o yuzden ayri etiketleniyor, teknik sinyalle karistirma.
+UC FARKLI SINYAL TIPI URETIR:
+  - "AL sinyali (teknik)"              -> WATCHLIST'teki hisseler icin,
+    EMA/RSI hesabina dayanir. En guvenilir olan, kural tabanli.
+  - "AL sinyali (haber bazli, DENEYSEL)"     -> NEWS_COMPANIES'teki (cok
+    daha genis) hisseler icin, basit anahtar kelime eslestirmesiyle
+    "olumlu gorunen" basliklar bulununca uretilir.
+  - "AL sinyali (analist/banka onerisi, DENEYSEL)" -> ayni genis liste
+    icin, banka/kurum adi + tavsiye ifadesi birlikte gecen basliklar
+    bulununca uretilir.
+  Son iki tip GERCEK bir NLP/konsensus analizi DEGILDIR - basit kelime
+  eslestirmesi. Ayri ve acik sekilde etiketleniyor, teknik sinyalle
+  karistirma.
 
 ANDROID KULLANIMI: Telefonun bilgisayar gibi Python calistiramadigi icin
 bu script iki modda calisabilir (config.py > RUN_ONCE ile secilir):
@@ -28,7 +33,8 @@ bu script iki modda calisabilir (config.py > RUN_ONCE ile secilir):
     calistirmak istersen (sinirli/pilli kullanim icin).
 
 Kar garantisi YOKTUR. Sinyalleri kendi gozlemlerinle karsilastirmadan
-uygulama - ozellikle haber bazli olanlari, kaynak basligi kendin de oku.
+uygulama - ozellikle haber/analist bazli olanlari, kaynak basligi kendin
+de oku.
 """
 
 import csv
@@ -38,6 +44,7 @@ import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import analyst_provider
 import config
 import news_provider
 import notifier
@@ -55,6 +62,7 @@ def load_state():
         data = {}
     data.setdefault("technical", {})
     data.setdefault("news", {})
+    data.setdefault("analyst", {})
     return data
 
 
@@ -80,7 +88,7 @@ def is_market_open():
     return "10:00" <= current <= "18:10"
 
 
-def process_symbol(symbol, state):
+def process_technical(symbol, state):
     """Teknik (EMA/RSI) AL sinyali - WATCHLIST icin."""
     daily_trend = strategy.get_daily_trend(symbol)
     signal, candle_time = strategy.get_entry_signal(symbol, daily_trend)
@@ -137,7 +145,33 @@ def process_news(symbol, state):
     notifier.send(message)
 
     already_seen.extend(new_headlines)
-    state["news"][symbol] = already_seen[-20:]  # sonsuza kadar buyumesin
+    state["news"][symbol] = already_seen[-20:]
+
+
+def process_analyst(symbol, state):
+    """Analist/banka onerisi, DENEYSEL AL sinyali - NEWS_COMPANIES icin."""
+    headlines = analyst_provider.get_recommendation_headlines(symbol)
+    if not headlines:
+        return
+
+    already_seen = state["analyst"].setdefault(symbol, [])
+    new_headlines = [h for h in headlines if h not in already_seen]
+    if not new_headlines:
+        return
+
+    headline_block = "\n".join(f"- {h}" for h in new_headlines[:3])
+    message = (
+        f"[{symbol}] AL sinyali (analist/banka onerisi, DENEYSEL)\n"
+        f"Yakalanan basliklar:\n{headline_block}\n"
+        f"Not: Resmi/dogrulanmis analist konsensusu degil, banka adi + "
+        f"tavsiye kelimesi gecen haber aramasi. Kaynagi kendin de kontrol et."
+    )
+    print(message)
+    log_signal([datetime.now(), symbol, "analist", " | ".join(new_headlines[:3])])
+    notifier.send(message)
+
+    already_seen.extend(new_headlines)
+    state["analyst"][symbol] = already_seen[-20:]
 
 
 def run_cycle(state):
@@ -147,9 +181,9 @@ def run_cycle(state):
 
     for symbol in config.WATCHLIST:
         try:
-            process_symbol(symbol, state)
+            process_technical(symbol, state)
         except Exception as exc:
-            print(f"[{symbol}] Hata: {exc}")
+            print(f"[{symbol}] Teknik hata: {exc}")
 
     if config.USE_NEWS_SIGNAL:
         for symbol in config.NEWS_COMPANIES:
@@ -158,15 +192,24 @@ def run_cycle(state):
             except Exception as exc:
                 print(f"[{symbol}] Haber hatasi: {exc}")
 
+    if config.USE_ANALYST_SIGNAL:
+        for symbol in config.NEWS_COMPANIES:
+            try:
+                process_analyst(symbol, state)
+            except Exception as exc:
+                print(f"[{symbol}] Analist hatasi: {exc}")
+
     save_state(state)
 
 
 def main():
     state = load_state()
     print("BIST Sinyal Botu baslatildi.")
-    print("Teknik takip listesi:", ", ".join(config.WATCHLIST))
+    print("Teknik takip listesi:", len(config.WATCHLIST), "hisse")
     if config.USE_NEWS_SIGNAL:
         print("Haber taramasi:", len(config.NEWS_COMPANIES), "sirket")
+    if config.USE_ANALYST_SIGNAL:
+        print("Analist/banka taramasi:", len(config.NEWS_COMPANIES), "sirket")
 
     if config.RUN_ONCE:
         run_cycle(state)

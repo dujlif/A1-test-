@@ -21,8 +21,8 @@ import feedparser
 import config
 
 
-def _fetch_headlines(company_name):
-    query = f"{company_name} hisse {config.NEWS_LOOKBACK_WINDOW}"
+def _fetch_headlines(company_name, extra_terms=""):
+    query = f"{company_name} {extra_terms} {config.NEWS_LOOKBACK_WINDOW}".strip()
     encoded = urllib.parse.quote(query)
     url = f"https://news.google.com/rss/search?q={encoded}&hl=tr&gl=TR&ceid=TR:tr"
     try:
@@ -50,5 +50,5 @@ def get_positive_headlines(symbol):
     if not company_name:
         return []
 
-    headlines = _fetch_headlines(company_name)
+    headlines = _fetch_headlines(company_name, "hisse")
     return [h for h in headlines if _is_positive(h)]
